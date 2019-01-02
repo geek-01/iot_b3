@@ -1,0 +1,178 @@
+Step 1: Download and install the software and libraries from the following links
+Library Files
+• sudo pip install django or sudo pip install django==1.11.14
+• sudo git clone https://github.com/adafruit/Adafruit_Python_GPIO.git
+• sudo git clone https://github.com/adafruit/Adafruit_Python_SSD1306.git • sudo git clone https://github.com/adafruit/Adafruit_Python_DHT.git
+
+
+Step 2: Connect the components as specified below
+Note: Refer the Fritzing for more information on connecting the components
+OLED
+• SCK - GPIO 11(PIN 23)
+• SDA - GPIO 10(PIN 19)
+• RES - GPIO 25(PIN 22)
+• DC - GPIO 24(PIN 18)
+• CS - GPIO 08(PIN 24)
+LED
+• LED Positive Pin - GPIO 14 (PIN 8)
+Code
+
+
+Step 3: Install the Adafruit Python GPIO Library
+cd ~
+sudo git clone https://github.com/adafruit/Adafruit_Python_GPIO.git cd Adafruit_Python_GPIO
+sudo python setup.py install
+
+
+Step 4: Install the SSD1306 Python library (OLED)
+cd ~
+sudo git clone https://github.com/adafruit/Adafruit_Python_SSD1306.git cd Adafruit_Python_SSD1306
+sudo python setup.py install
+
+Step 5: To Enable SPI
+sudo raspi-config
+
+Step 6: Install the DHT11 python library
+cd ~
+sudo git clone https://github.com/adafruit/Adafruit_Python_DHT.git cd Adafruit_Python_DHT
+sudo python setup.py install
+
+Step 7: Install Django cd ~
+sudo pip install django or sudo pip install django==1.11.14
+Note: If pip is broken
+curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py sudo python get-pip.py --force-reinstall
+
+Step 8: Create Directory and Setting Permission
+create directory && chmod 777 <directory name> sudo django -admin.py startproject lab9
+cd lab9
+sudo python manage.py migrate
+
+Step 9: To host Server using Raspberry Pi IP Address
+cd lab9
+sudo nano settings.py
+#search for ALLOW HOST and ADD IP ADDRESS of Raspberry Pi ALLOWED_HOSTS = [ ’192.168.0.104 ’]
+
+Step 10: To check if server starts without error
+cd ..
+sudo python manage.py runserver <Raspberry pi IP:PORT> #exit from server
+Ctrl+c
+
+Step 11: Create Templates Folder to store HTML Files sudo mkdir templates
+cd lab9
+
+Step 12: Create views.py file
+
+Step 13: In views.py, Create a definition to return index.html page and Class from LED, OLED
+
+Step 14: Coding - utf-8
+
+from __future__ import unicode_literals
+from django.shortcuts import render
+from django.views.generic import View,TemplateView import Adafruit_DHT
+import RPi.GPIO as GPIO
+from django.http import HttpResponseRedirect import sys
+import time
+import Adafruit_GPIO.SPI as SPI
+import Adafruit_SSD1306
+from PIL import Image
+from PIL import ImageDraw
+from PIL import ImageFont
+import subproces
+def homepage(request):#render index.html
+	humid, temp = Adafruit_DHT.read_retry(11, 4)
+	return render(request,’index.html’,{"tempdata":temp,"humiddata":
+	humid})#send temperature and humididty data 
+class led(View):#led ON and OFF
+	def post(self,request): GPIO.setmode(GPIO.BCM)
+		GPIO.setup(14,GPIO.OUT)#PIN NO 14 
+		if(GPIO.input(14)):#check if pin is in HIGH status
+			print("on->off") 
+			GPIO.output(14,False)
+		else: 
+			print("off->on")
+			GPIO.output(14,True)
+		return HttpResponseRedirect("/")
+class oled(View):#oled
+	def post(self,request):
+		lines=[request.POST.get(’oleddata ’)]#get form data from post request
+		disp = Adafruit_SSD1306.SSD1306_128_64(rst=25, dc=24, sclk =11, din=10, cs=8)
+		disp.begin()
+		disp.clear()
+		disp.display()
+		width = disp.width
+		height = disp.height
+		image = Image.new(’1’,
+		draw = ImageDraw.Draw(image) draw.rectangle((0,0,width,height), outline=0, fill=0) padding = -2
+		top = padding
+		bottom = height -padding
+		x=0
+		font = ImageFont.load_default() draw.rectangle((0,0,width,height), outline=0, fill=0) extra1 = 0
+		extra2 = 0
+		for i in range(0,len(lines)):
+			draw.text((x+extra1 ,top+extra2),str(lines[i]),font =font,fill=255)
+			#extra1+=15
+			extra2 += 8
+		disp.image(image)
+		disp.display()
+		return HttpResponseRedirect ("/") #redirect to index.html page
+
+Step 16: Add the url pattern to render index.html in urls.py
+
+from django.conf.urls import url 
+from django.contrib import admin 
+from .views import homepage,led,oled urlpatterns = 
+[
+url(r’^admin/’, admin.site.urls),
+url(r’^$’,homepage),#when requested for root page(index.html) url(r’^led$’,led.as_view()),#mapped to led code when led form is submited
+to change state of led
+url(r’^oled$’,oled.as_view()),#mapped to oled code to print text given in
+oled form request 
+]
+
+Step 17: Create index.html page in templates folder cd ./../ templates
+sudo nano index.html
+<html>
+<head>
+<style >
+table, th, td {
+border: 1px solid black; }
+</style>
+</head>
+<body>
+<table >
+<tr>
+<th>led</th> <th>temperature </th> <th>humidity </th>
+<th>oled</th> </tr>
+<tr>
+<td>
+<form action="led" method="POST">
+<input type="submit" value="ON/OFF"/>{% csrf_token %} </form>
+</td>
+<td>
+{{ tempdata }} celcius
+</td>
+<td>
+{{ humiddata }} %
+</td>
+<td>
+<form action="oled" method="POST">
+<input type="text" name="oleddata" />
+<input type="submit" value="print on oled"/>{% csrf_token %} </form>
+</td>
+</tr>
+</table>
+</body>
+</html>
+
+Step 18: Add templates folder path in settings.py file at TEMPLATES list->DIRS cd ./../ lab9
+sudo nano settings.py
+TEMPLATES = [ {
+’BACKEND ’: ’django.template.backends.django.DjangoTemplates ’, ’DIRS ’: [os.path.join(BASE_DIR , ’templates ’)],#add this line
+map to templates directory ’APP_DIRS ’: True ,
+’OPTIONS ’: {
+’context_processors ’: [ ’django.template.context_processors.debug’, ’django.template.context_processors.request ’, ’django.contrib.auth.context_processors.auth’, ’django.contrib.messages.context_processors.messages ’,
+], }, }, ]
+
+Step 19: Add the URl Pattern to render index.html in urls.py
+sudo python manage.py runserver Raspberry pi IP:PORT
+
